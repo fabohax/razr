@@ -4,7 +4,7 @@
 
 # razr
 
-**razr** es un bot de monitoreo en tiempo real que analiza el mercado BTC/USDT en OKX mediante el indicador MACD y emite alertas automáticas ante oportunidades de compra o venta.
+**razr** es un bot de monitoreo en tiempo real que analiza el mercado BTC/USDT mediante el indicador MACD y emite alertas automáticas ante oportunidades de compra o venta.
 
 ### Ciclo de operación
 
