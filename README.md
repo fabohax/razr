@@ -4,7 +4,21 @@
 
 # razr
 
-Bot de alertas de trading de BTC para OKX en Linux (shell + desktop alerts).
+**razr** es un bot de monitoreo en tiempo real que analiza el mercado BTC/USDT en OKX mediante el indicador MACD y emite alertas automáticas ante oportunidades de compra o venta.
+
+### Ciclo de operación
+
+1. **Conexión al exchange** — Se conecta a OKX vía API usando `ccxt` con las credenciales definidas en `config.yaml`.
+2. **Obtención de datos** — Descarga las últimas N velas (OHLCV) del par y timeframe configurados (por defecto `BTC/USDT` en `15m`).
+3. **Cálculo de indicadores** — Computa MACD, línea de señal e histograma con parámetros configurables (`fast`, `slow`, `signal`).
+4. **Detección de cruces** — Identifica cruces alcistas (BUY) y bajistas (SELL) entre la línea MACD y la línea de señal. Clasifica cada cruce como **fuerte** o **débil** según la posición del histograma.
+5. **Backtesting ligero** — Ejecuta un backtest rápido sobre las velas descargadas para auditar la frecuencia de señales recientes.
+6. **Alertas** — Cuando se detecta un nuevo cruce:
+   - Envía una **notificación de escritorio** (`notify-send`) con urgencia configurable.
+   - Reproduce un **sonido de alerta** (`paplay` / `sox`).
+   - Imprime la señal en consola con **colores** (verde = BUY, rojo = SELL) usando `colorama`.
+   - Registra el evento en `razr.log`.
+7. **Bucle continuo** — Espera `sleep_seconds` (por defecto 30s) y repite. Ante errores de red o API, reintenta automáticamente tras 30s.
 
 ## Requisitos previos (Ubuntu 22.04/24.04)
 
