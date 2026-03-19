@@ -46,4 +46,7 @@ build/
 # Ignore nohup outputs
 nohup.out
 
+# Local config that should not be committed
+config.yaml
+
 ohlcv_data.csv

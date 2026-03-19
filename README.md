@@ -1,155 +1,134 @@
 <p>
-  <img src="yaku.png" alt="yaku-bot" width="400" style="display: block; margin: auto;">
+  <img src="razr.png" alt="razr-bot" width="400" style="display: block; margin: auto;">
 </p>
 
-# yaku 
+# razr
 
-**yaku** is a high-performance cryptocurrency trading signaler bot built in Python. It follows a custom strategy called **Strato**, which is based on **MACD crossovers** and specific timing rules to maximize profitability.
+Bot de alertas de trading de BTC para OKX en Linux (shell + desktop alerts).
 
----
+## Requisitos previos (Ubuntu 22.04/24.04)
 
-## **Strato Strategy - Explained 🚀**
+1. Actualizar sistema:
 
-The **Strato** strategy is a systematic approach based on **MACD crossovers** with additional confirmations:
-
-1. **Bullish MACD Crossover**  
-   - A signal is triggered when the **MACD line crosses above the signal line**.
-   - This marks the start of an uptrend, where the bot begins monitoring price movement.
-
-2. **19-Minute Confirmation**  
-   - If **19 minutes** pass after the bullish crossover and price remains above the crossover level, a selling signal is issued.
-   - This prevents false signals caused by small fluctuations.
-
-3. **0.50% Target Price**  
-   - If the price rises **0.50% above the bullish crossover level**, the bot issues an alert.
-   - This ensures profit-taking at a reasonable gain before potential reversals.
-
-4. **Bearish MACD Crossover**  
-   - If the **MACD line crosses below the signal line**, a bearish crossover is detected.
-   - This serves as an early warning to reconsider market conditions.
-
----
-
-## **Project Structure 📂**
-
-```
-yaku/
-│── bot.py               # Main signaler bot script
-│── config.py            # Configuration loader for API keys and bot settings
-│── go.sh                # Bash script to run the bot
-│── README.md            # Project documentation
-│── .env                 # Environment variables
-│── requirements.txt     # Python dependencies
-│── logs/                # Directory to store bot logs
+```bash
+sudo apt update && sudo apt upgrade -y
 ```
 
----
+2. Instalar Python 3 y herramientas nativas:
 
-## **Installation & Setup 🔧**
-
-### **1. Install Python 🐍**
-Make sure Python 3.9 or higher is installed on your system. You can check with:
-```sh
-python3 --version
+```bash
+sudo apt install -y python3 python3-venv python3-pip libnotify-bin sox
 ```
 
----
+3. (Opcional) Instalar `screen` o `tmux` para ejecutar en segundo plano:
 
-### **2. Clone the Repository 📂**
-```sh
-git clone https://github.com/fabohax/yaku.git
-cd yaku
+```bash
+sudo apt install -y screen tmux
 ```
 
----
+4. Clonar/descargar este proyecto:
 
-### **3. Set Up Dependencies 📦**
-Install the required dependencies:
-```sh
+```bash
+cd ~/Documents
+git clone https://github.com/fabohax/razr
+cd razr
+```
+
+5. Crear entorno virtual e instalar dependencias:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
+6. Copiar configuración y editar la API Key/Secret:
 
-### **4. Set Up Environment Variables 🔑**
-Create a `.env` file and add your **Telegram bot credentials**:
-
-```env
-TELEGRAM_BOT_TOKEN=your_telegram_token
-TELEGRAM_CHAT_ID=your_chat_id
+```bash
+cp config.yaml.example config.yaml
+nano config.yaml
 ```
 
----
+Configura `api_key`, `api_secret`, `api_passphrase` (si aplica), `timeframe` y `sound_file`.
 
-### **5. Run the Bot Using `go.sh` 🚀**
-You can use the `go.sh` script to run the bot in the background and log the output:
+## Uso
 
-Make the script executable:
-```sh
-chmod +x go.sh
+```bash
+source .venv/bin/activate
+python main.py
 ```
 
-Run the script:
-```sh
-./go.sh
+### Ejecutar en segundo plano con `screen`
+
+```bash
+screen -S razr
+source .venv/bin/activate
+python main.py
+```
+Para volver a la sesión:
+
+```bash
+screen -r razr
 ```
 
-The bot will start and log its output to `logs/bot.log`.
+### Ejecutar con `tmux`
 
----
+```bash
+tmux new -s razr
+source .venv/bin/activate
+python main.py
+```
 
-## **Deployment on a Server (VPS) 💻**
-To run yaku 24/7, deploy it on a **VPS** or cloud server:
+### Ejecutar con `systemd` (opcional para segundo plano)
 
-1. **Install Python and Set Up Virtual Environment**
-   ```sh
-   sudo apt update && sudo apt install python3 python3-venv
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+Crea `/etc/systemd/system/razr.service`:
 
-2. **Run Using `go.sh`**
-   ```sh
-   ./go.sh
-   ```
+```ini
+[Unit]
+Description=Razr MACD Alert Bot
+After=network.target
 
-3. **Using `systemd` for Auto-Restart**
-   Create a new service file:
-   ```sh
-   sudo nano /etc/systemd/system/yaku.service
-   ```
-   Add the following:
-   ```ini
-   [Unit]
-   Description=yaku.signals
-   After=network.target
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=/home/$USER/Documents/razr
+ExecStart=/home/$USER/Documents/razr/.venv/bin/python /home/$USER/Documents/razr/main.py
+Restart=on-failure
+RestartSec=20
+Environment="DISPLAY=:0" "XAUTHORITY=/home/$USER/.Xauthority"
 
-   [Service]
-   ExecStart=/path/to/your/yaku/go.sh
-   Restart=always
-   User=your_user
+[Install]
+WantedBy=default.target
+```
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
+Después:
 
-   Enable and start the service:
-   ```sh
-   sudo systemctl enable yaku
-   sudo systemctl start yaku
-   ```
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable razr.service
+sudo systemctl start razr.service
+sudo systemctl status razr.service
+```
 
----
+## Qué hace el bot
 
-## **Future Improvements 🚧**
-- **Web Dashboard:** Monitor real-time signals.
-- **Backtesting Module:** Test the strategy on historical data.
+- Conecta a OKX con `ccxt`
+- Descarga velas de BTC/USDT
+- Calcula MACD con `pandas_ta`
+- Detecta cruces de MACD/Signal
+- Notifica en desktop con `notify-send` + sonido
+- Guarda logs en `razr.log`
 
----
+## Estructura de archivos
 
-## **Contributing 🤝**
-Pull requests and issues are welcome! If you'd like to contribute, feel free to fork the repo and submit PRs.
+- `main.py` - flujo principal
+- `indicators.py` - cálculo MACD, señales
+- `alerts.py` - notify-send + sonido
+- `utils.py` - conexión OKX, logging, config
+- `config.yaml.example` - ejemplo de configuración
 
----
-<sub>⚠ Warning: yaku is designed primarily for BTC/USDT due to its high liquidity and optimal volatility performance. Usage on other pairs may result in inconsistent signals. Always conduct your own risk assessment before trading. 🚀📊</sub>
+## Notas de seguridad
+
+- Nunca subas `config.yaml` con tus API keys a repositorios.
+- Mantén `config.yaml` fuera de backups públicos.

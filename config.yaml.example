@@ -1,0 +1,17 @@
+api_key: "EXCHANGE_API_KEY"
+api_secret: "EXCHANGE_API_SECRET"
+api_passphrase: "PASSPHRASE"  # Si aplica para OKX (CCXT acepta passphrase para algunos mercados)
+
+exchange: "okx"
+symbol: "BTC/USDT"
+timeframe: "15m"  # 1m, 5m, 15m, 1h, etc.
+macd_fast: 12
+macd_slow: 26
+macd_signal: 9
+limit: 200  # Velas históricas a descargar
+sleep_seconds: 30  # Espera entre iteraciones para datos en tiempo real
+sound_file: "/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"  # Opcional
+debug: false
+
+# Ajustes de notificación
+notify_urgency: "critical"
