@@ -10,6 +10,7 @@ macd_slow: 26
 macd_signal: 9
 limit: 200  # Velas históricas a descargar
 sleep_seconds: 30  # Espera entre iteraciones para datos en tiempo real
+resume_grace_seconds: 10  # Margen extra para detectar reanudación tras suspensión
 sound_file: "/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"  # Opcional
 debug: false
 

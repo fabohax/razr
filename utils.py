@@ -6,6 +6,19 @@ from typing import Any, Dict
 import ccxt
 
 
+def detect_resume(last_wall_ts: float, expected_sleep: int, grace_seconds: int = 10) -> tuple[bool, int]:
+    """Detecta si hubo suspensión por un salto grande de reloj de pared.
+
+    Retorna (resumed, drift_seconds), donde drift_seconds es cuánto excedió
+    el tiempo esperado del ciclo.
+    """
+    now = time.time()
+    elapsed = max(0, int(now - last_wall_ts))
+    threshold = max(expected_sleep + grace_seconds, expected_sleep * 2)
+    drift = elapsed - expected_sleep
+    return elapsed >= threshold, max(0, drift)
+
+
 def setup_logger(log_file: str, debug: bool = False) -> logging.Logger:
     """Configura un logger para consola y archivo."""
     lvl = logging.DEBUG if debug else logging.INFO
@@ -83,6 +96,12 @@ def safe_sleep(seconds: int, logger: logging.Logger):
     """Duerme un tiempo y permite limpieza de logs."""
     logger.debug(f"Durmiendo {seconds} segundos...")
     time.sleep(seconds)
+
+
+def reconnect_exchange(config: Dict[str, Any], logger: logging.Logger) -> ccxt.Exchange:
+    """Reconecta al exchange para limpiar estado de sockets tras suspensión."""
+    logger.info("Reiniciando conexión con el exchange...")
+    return connect_okx(config, logger)
 
 
 def fetch_ohlcv(exchange: ccxt.Exchange, symbol: str, timeframe: str, limit: int, logger: logging.Logger):

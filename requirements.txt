@@ -1,6 +1,6 @@
 ccxt>=3.0.0
 pandas>=2.0
-pandas_ta>=0.4.0
+pandas_ta>=0.4.67b0
 PyYAML>=6.0
 colorama>=0.4.6
 

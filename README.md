@@ -19,6 +19,7 @@
    - Imprime la señal en consola con **colores** (verde = BUY, rojo = SELL) usando `colorama`.
    - Registra el evento en `razr.log`.
 7. **Bucle continuo** — Espera `sleep_seconds` (por defecto 30s) y repite. Ante errores de red o API, reintenta automáticamente tras 30s.
+8. **Reanudación tras suspensión** — Si el equipo se suspende (por ejemplo, al cerrar la laptop), el bot detecta el salto de tiempo, reconecta con OKX y pausa un ciclo para evitar errores transitorios de red al volver.
 
 ## Requisitos previos (Ubuntu 22.04/24.04)
 
@@ -33,6 +34,7 @@ sudo apt update && sudo apt upgrade -y
 ```bash
 sudo apt install -y python3 python3-venv python3-pip libnotify-bin sox
 ```
+
 
 3. (Opcional) Instalar `screen` o `tmux` para ejecutar en segundo plano:
 
@@ -65,6 +67,7 @@ nano config.yaml
 ```
 
 Configura `api_key`, `api_secret`, `api_passphrase` (si aplica), `timeframe` y `sound_file`.
+También puedes ajustar `resume_grace_seconds` para controlar la sensibilidad de detección de reanudación.
 
 ## Uso
 
@@ -72,6 +75,21 @@ Configura `api_key`, `api_secret`, `api_passphrase` (si aplica), `timeframe` y `
 source .venv/bin/activate
 python main.py
 ```
+
+## GUI mínima
+
+Puedes usar una interfaz simple para editar `config.yaml` y ejecutar/parar el bot sin terminal:
+
+```bash
+source .venv/bin/activate
+python gui.py
+```
+
+Funciones incluidas:
+- Editar todos los campos de configuración más comunes.
+- Guardar `config.yaml` con un clic.
+- Ejecutar y detener el bot.
+- Ver salida en vivo del proceso dentro de la ventana.
 
 ### Ejecutar en segundo plano con `screen`
 

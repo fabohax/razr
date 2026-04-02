@@ -1,13 +1,15 @@
 import sys
+import time
 import traceback
 from datetime import datetime
 
+import ccxt
 from colorama import Fore, Style
 
 from alerts import play_sound, send_desktop_alert
 from indicators import backtest_signals, compute_macd, detect_macd_signal
 from utils import (build_dataframe, connect_okx, fetch_current_price, fetch_ohlcv, load_config,
-                   safe_sleep, setup_logger)
+                   reconnect_exchange, safe_sleep, setup_logger, detect_resume)
 
 
 def format_signal_message(signal_data: dict, symbol: str, timeframe: str):
@@ -54,17 +56,30 @@ def main():
     macd_signal = int(config.get("macd_signal", 9))
     limit = int(config.get("limit", 200))
     sleep_seconds = int(config.get("sleep_seconds", 30))
+    resume_grace_seconds = int(config.get("resume_grace_seconds", 10))
     sound_file = config.get("sound_file")
     urgency = config.get("notify_urgency", "critical")
 
     exchange = connect_okx(config, logger)
     last_signal = None
+    last_cycle_wall_ts = time.time()
 
     logger.info("Iniciando bucle principal de razr...")
     logger.info(f"Símbolo: {symbol}, timeframe: {timeframe}, MACD: {macd_fast},{macd_slow},{macd_signal}")
 
     while True:
         try:
+            resumed, drift = detect_resume(last_cycle_wall_ts, sleep_seconds, resume_grace_seconds)
+            if resumed:
+                logger.warning(
+                    f"Posible reanudación del sistema detectada (+{drift}s de deriva). "
+                    "Reconectando exchange y pausando un ciclo."
+                )
+                exchange = reconnect_exchange(config, logger)
+                last_cycle_wall_ts = time.time()
+                safe_sleep(min(10, sleep_seconds), logger)
+                continue
+
             ohlcv = fetch_ohlcv(exchange, symbol, timeframe, limit, logger)
             df = build_dataframe(ohlcv)
             df = compute_macd(df, fast=macd_fast, slow=macd_slow, signal=macd_signal)
@@ -98,15 +113,26 @@ def main():
             else:
                 logger.debug("No hay señal MACD en este ciclo.")
 
+            last_cycle_wall_ts = time.time()
             safe_sleep(sleep_seconds, logger)
 
         except KeyboardInterrupt:
             logger.info("Interrumpido por usuario. Saliendo...")
             sys.exit(0)
+        except ccxt.NetworkError as exc:
+            logger.warning(f"Error de red en main loop: {exc}")
+            logger.info("Reintentando con reconexión en 15s...")
+            try:
+                exchange = reconnect_exchange(config, logger)
+            except Exception as reconnect_exc:
+                logger.error(f"Fallo de reconexión: {reconnect_exc}")
+            last_cycle_wall_ts = time.time()
+            safe_sleep(15, logger)
         except Exception as exc:
             trace = traceback.format_exc()
             logger.error(f"Error en main loop: {exc}\n{trace}")
             logger.info("Esperando 30s antes de reintentar...")
+            last_cycle_wall_ts = time.time()
             safe_sleep(30, logger)
 
 
