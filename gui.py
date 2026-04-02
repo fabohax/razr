@@ -40,6 +40,7 @@ ACCENT_ACTIVE_COLOR = "#151515"
 TERMINAL_GREEN = "#9dff00"
 BORDER_COLOR = "#222222"
 INPUT_COLOR = "#101010"
+BOT_RUNNER_ARG = "--bot-runner"
 
 
 class RazrGUI:
@@ -427,8 +428,9 @@ class RazrGUI:
         self._set_running_state(True)
 
         try:
+            command = self._build_bot_command()
             self.process = subprocess.Popen(
-                [sys.executable, "main.py"],
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -441,6 +443,11 @@ class RazrGUI:
 
         self.output_thread = threading.Thread(target=self._read_output, daemon=True)
         self.output_thread.start()
+
+    def _build_bot_command(self) -> list[str]:
+        if getattr(sys, "frozen", False):
+            return [sys.executable, BOT_RUNNER_ARG]
+        return [sys.executable, "main.py"]
 
     def _read_output(self):
         assert self.process is not None
@@ -473,6 +480,12 @@ class RazrGUI:
 
 
 def main():
+    if BOT_RUNNER_ARG in sys.argv[1:]:
+        from main import main as bot_main
+
+        bot_main()
+        return
+
     root = tk.Tk()
     app = RazrGUI(root)
     app._apply_dark_theme()
