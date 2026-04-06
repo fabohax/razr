@@ -155,6 +155,16 @@ class RazrGUI:
             padding=[("selected", (22, 10)), ("active", (22, 10))],
         )
         style.configure(
+            "TEntry",
+            fieldbackground=INPUT_COLOR,
+            foreground=TEXT_COLOR,
+            bordercolor=BORDER_COLOR,
+            lightcolor=BORDER_COLOR,
+            darkcolor=BORDER_COLOR,
+            borderwidth=1,
+            padding=3,
+        )
+        style.configure(
             "TCombobox",
             fieldbackground=INPUT_COLOR,
             background=SURFACE_COLOR,
@@ -163,6 +173,8 @@ class RazrGUI:
             bordercolor=BORDER_COLOR,
             lightcolor=BORDER_COLOR,
             darkcolor=BORDER_COLOR,
+            borderwidth=1,
+            padding=3,
         )
         style.map(
             "TCombobox",

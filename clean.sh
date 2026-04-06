@@ -8,6 +8,6 @@ cd "$ROOT_DIR"
 
 echo "Removing PyInstaller artifacts..."
 rm -rf build dist
-rm -f ./*.spec
+rm -rf __pycache__
 
 echo "Clean complete."

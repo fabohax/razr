@@ -91,6 +91,41 @@ Funciones incluidas:
 - Ejecutar y detener el bot.
 - Ver salida en vivo del proceso dentro de la ventana.
 
+## Generar ejecutable
+
+### Linux
+
+```bash
+source .venv/bin/activate
+./build.sh
+```
+
+Salida esperada:
+
+```bash
+dist/razr-gui
+```
+
+### Windows
+
+En una máquina Windows, desde la carpeta del proyecto:
+
+```bat
+py -m venv .venv
+.venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+build-windows.bat
+```
+
+Salida esperada:
+
+```bat
+dist\razr-gui.exe
+```
+
+> Nota: PyInstaller debe ejecutarse en Windows para generar el `.exe` de Windows.
+
 ### Ejecutar en segundo plano con `screen`
 
 ```bash

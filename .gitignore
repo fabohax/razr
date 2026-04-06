@@ -44,6 +44,10 @@ dist/
 build/
 *.spec
 
+# Generated dist runtime files
+dist/config.yaml
+dist/razr.log
+
 # Ignore nohup outputs
 nohup.out
 

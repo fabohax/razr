@@ -14,7 +14,7 @@ fi
 cd "$ROOT_DIR"
 
 echo "Building razr-gui with PyInstaller..."
-"$VENV_PYTHON" -m PyInstaller --onefile --name razr-gui gui.py
+"$VENV_PYTHON" -m PyInstaller --noconfirm "$ROOT_DIR/razr-gui.spec"
 
 echo
 echo "Build complete: $ROOT_DIR/dist/razr-gui"
