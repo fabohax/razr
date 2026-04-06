@@ -43,6 +43,7 @@ Thumbs.db
 dist/
 build/
 *.spec
+!razr-gui.spec
 
 # Generated dist runtime files
 dist/config.yaml
