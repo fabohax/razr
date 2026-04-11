@@ -30,8 +30,11 @@ fi
 
 cd "$ROOT_DIR"
 
+echo "Removing old PyInstaller artifacts..."
+rm -rf "$ROOT_DIR/build" "$ROOT_DIR/dist" "$ROOT_DIR/__pycache__"
+
 echo "Building razr-gui with PyInstaller..."
-"$VENV_PYTHON" -m PyInstaller --noconfirm "${EXTRA_ARGS[@]}" "$BUILD_TARGET"
+"$VENV_PYTHON" -m PyInstaller --clean --noconfirm "${EXTRA_ARGS[@]}" "$BUILD_TARGET"
 
 echo
 echo "Build complete: $ROOT_DIR/dist/razr-gui"

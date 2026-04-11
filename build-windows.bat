@@ -35,8 +35,13 @@ if not exist "%VENV_PYTHON%" (
     exit /b 1
 )
 
+echo Removing old PyInstaller artifacts...
+if exist "%ROOT_DIR%\build" rmdir /s /q "%ROOT_DIR%\build"
+if exist "%ROOT_DIR%\dist" rmdir /s /q "%ROOT_DIR%\dist"
+if exist "%ROOT_DIR%\__pycache__" rmdir /s /q "%ROOT_DIR%\__pycache__"
+
 echo Building razr-gui.exe with PyInstaller...
-"%VENV_PYTHON%" -m PyInstaller --noconfirm %PYINSTALLER_ARGS% "%BUILD_TARGET%"
+"%VENV_PYTHON%" -m PyInstaller --clean --noconfirm %PYINSTALLER_ARGS% "%BUILD_TARGET%"
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (
