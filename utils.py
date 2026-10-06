@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 import time
 from typing import Any, Dict
@@ -24,8 +25,10 @@ def setup_logger(log_file: str, debug: bool = False) -> logging.Logger:
     lvl = logging.DEBUG if debug else logging.INFO
     logger = logging.getLogger("razr")
     logger.setLevel(lvl)
-    if logger.handlers:
-        return logger
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+        handler.close()
+    logger.propagate = False
 
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
 
@@ -34,7 +37,7 @@ def setup_logger(log_file: str, debug: bool = False) -> logging.Logger:
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = logging.FileHandler(log_file)
+    fh = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -42,53 +45,38 @@ def setup_logger(log_file: str, debug: bool = False) -> logging.Logger:
     return logger
 
 
-def load_config(path: str) -> Dict[str, Any]:
-    """Carga configuración YAML."""
-    import yaml
-
-    with open(path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    return config
+from config import ConfigError, load_config
 
 
-def connect_okx(config: Dict[str, Any], logger: logging.Logger) -> ccxt.Exchange:
-    """Conecta a OKX con CCXT y retorna el exchange. Puede funcionar solo para datos públicos."""
-    api_key = config.get("api_key")
-    api_secret = config.get("api_secret")
-    passphrase = config.get("api_passphrase", "")
+def validate_exchange(exchange, config):
+    if not exchange.has.get("fetchOHLCV"):
+        raise ConfigError("OKX does not report fetchOHLCV support")
+    market = exchange.markets.get(config.symbol)
+    if not market or not market.get("spot") or market.get("active") is False:
+        raise ConfigError("configured market must exist and be active spot")
+    if config.timeframe not in (exchange.timeframes or {}):
+        raise ConfigError("configured timeframe is unsupported by OKX")
+    if not 5 * config.macd_slow + config.macd_signal + 2 <= config.limit <= 300:
+        raise ConfigError("history limit is outside the supported OKX candle range")
 
-    exchange_id = config.get("exchange", "okx").lower()
-    if exchange_id not in ccxt.exchanges:
-        raise ValueError(f"Exchange desconocido: {exchange_id}")
 
-    exchange_class = getattr(ccxt, exchange_id)
-    params = {
-        "enableRateLimit": True,
-        "rateLimit": 1000,
-        "timeout": 30000,
-    }
-    if api_key and api_secret:
-        params["apiKey"] = api_key
-        params["secret"] = api_secret
-        params["password"] = passphrase
-    else:
-        logger.warning("No se encontraron API keys; usando solo endpoints públicos.")
-
-    exchange = exchange_class(params)
-
-    # Ajustes para network y proxies opcionales
-    exchange.options = {
-        **exchange.options,
-        "adjustForTimeDifference": True,
-    }
-
-    logger.info("Conectando a OKX...")
+def connect_okx(config, logger) -> ccxt.Exchange:
+    params = {"enableRateLimit": True, "timeout": 30000,
+              "options": {"defaultType": "spot", "fetchMarkets": {"types": ["spot"]}}}
+    if config.authenticated:
+        params.update(apiKey=config.api_key, secret=config.api_secret, password=config.api_passphrase)
+    logger.info("Connecting to OKX (%s data)", "authenticated" if config.authenticated else "public")
+    exchange = ccxt.okx(params)
     try:
         exchange.load_markets()
+        validate_exchange(exchange, config)
     except Exception as exc:
-        logger.error(f"Error cargando mercados OKX: {exc}")
+        if isinstance(exc, ccxt.OperationFailed):
+            from runtime import retry_after
+            exc.retry_after_seconds = retry_after(exchange, config.retry_max_seconds)
+        close_exchange(exchange)
         raise
-    logger.info("Conexión OKX establecida")
+    logger.info("OKX spot metadata validated")
     return exchange
 
 
@@ -105,29 +93,22 @@ def reconnect_exchange(config: Dict[str, Any], logger: logging.Logger) -> ccxt.E
 
 
 def fetch_ohlcv(exchange: ccxt.Exchange, symbol: str, timeframe: str, limit: int, logger: logging.Logger):
-    """Descarga velas OHLCV."""
-    try:
-        market = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-    except ccxt.NetworkError as e:
-        logger.warning(f"Network error fetch_ohlcv: {e}")
-        raise
-    except ccxt.RateLimitExceeded as e:
-        logger.warning(f"Rate limit exceeded: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error inesperado fetch_ohlcv: {e}")
-        raise
-    return market
+    """Fetch public candles; callers log sanitized error categories."""
+    return exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+
+
+def close_exchange(exchange):
+    close = getattr(exchange, 'close', None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            pass
 
 
 def build_dataframe(ohlcv):
-    """Construye DataFrame pandas de OHLCV."""
-    import pandas as pd
-
-    df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-    df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df.set_index("datetime", inplace=True)
-    return df
+    from market_data import normalize_ohlcv
+    return normalize_ohlcv(ohlcv)
 
 
 def fetch_current_price(exchange: ccxt.Exchange, symbol: str, logger: logging.Logger):

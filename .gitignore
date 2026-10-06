@@ -56,3 +56,5 @@ nohup.out
 config.yaml
 
 ohlcv_data.csv
+
+.pytest_cache/

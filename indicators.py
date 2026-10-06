@@ -1,10 +1,14 @@
+import math
 import pandas as pd
 
 
 def compute_macd(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
-    """Calcula MACD + signal + histograma usando pandas_ta."""
-    import pandas_ta as ta
+    """Calcula MACD + signal + histograma usando pandas."""
 
+    if any(type(period) is not int or period <= 0 for period in (fast, slow, signal)) or fast >= slow:
+        raise ValueError('MACD periods must be positive integers with fast < slow')
+    if any(not math.isfinite(value) or value <= 0 for value in df['close']):
+        raise ValueError('MACD closes must be finite positive numbers')
     df = df.copy()
     ema_fast = df["close"].ewm(span=fast, adjust=False).mean()
     ema_slow = df["close"].ewm(span=slow, adjust=False).mean()
@@ -15,6 +19,8 @@ def compute_macd(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int =
     df["MACD"] = macd
     df["MACD_Signal"] = signal_line
     df["MACD_Hist"] = hist
+    from signals import warmup
+    df["eligible"] = [i >= warmup(fast, slow, signal) for i in range(len(df))]
     return df
 
 
@@ -23,40 +29,28 @@ def detect_macd_signal(df: pd.DataFrame):
     if df.shape[0] < 2:
         return None
 
+    if "eligible" in df and not df.eligible.iloc[-1]:
+        return None
     curr = df.iloc[-1]
     prev = df.iloc[-2]
+    if any(not math.isfinite(row[key]) for row in (prev, curr)
+           for key in ('MACD', 'MACD_Signal', 'MACD_Hist', 'close')):
+        return None
 
     buy_cross = (prev["MACD"] <= prev["MACD_Signal"]) and (curr["MACD"] > curr["MACD_Signal"])
     sell_cross = (prev["MACD"] >= prev["MACD_Signal"]) and (curr["MACD"] < curr["MACD_Signal"])
 
-    if buy_cross:
-        note = "BUY"
-        strong = curr["MACD_Hist"] > 0
-        return {"signal": "BUY", "strong": strong, "price": curr["close"], "macd": curr["MACD"], "signal_line": curr["MACD_Signal"], "hist": curr["MACD_Hist"], "timestamp": curr.name}
-    if sell_cross:
-        strong = curr["MACD_Hist"] < 0
-        return {"signal": "SELL", "strong": strong, "price": curr["close"], "macd": curr["MACD"], "signal_line": curr["MACD_Signal"], "hist": curr["MACD_Hist"], "timestamp": curr.name}
+    if buy_cross or sell_cross:
+        return {"signal": "BUY" if buy_cross else "SELL", "price": curr["close"], "macd": curr["MACD"], "signal_line": curr["MACD_Signal"], "hist": curr["MACD_Hist"], "timestamp": curr.name}
 
     return None
 
 
-def backtest_signals(df: pd.DataFrame):
-    """Backtest simple de cruces para auditoria.
-    Devuelve un dict con conteos de señales y últimos cruces."""
-    df = df.copy()
-    df["prev_macd"] = df["MACD"].shift(1)
-    df["prev_signal"] = df["MACD_Signal"].shift(1)
-
-    df["buy_cross"] = (df["prev_macd"] <= df["prev_signal"]) & (df["MACD"] > df["MACD_Signal"])
-    df["sell_cross"] = (df["prev_macd"] >= df["prev_signal"]) & (df["MACD"] < df["MACD_Signal"])
-
-    buys = int(df["buy_cross"].sum())
-    sells = int(df["sell_cross"].sum())
-    total = df.shape[0]
-
+def signal_audit(events):
+    """Count confirmed events; this audit is not a trade performance backtest."""
     return {
-        "candles": total,
-        "buy_signals": buys,
-        "sell_signals": sells,
-        "last_signal": "BUY" if df["buy_cross"].iloc[-1] else "SELL" if df["sell_cross"].iloc[-1] else "NONE",
+        "events": len(events),
+        "buy_signals": sum(event["signal"] == "BUY" for event in events),
+        "sell_signals": sum(event["signal"] == "SELL" for event in events),
+        "last_signal": events[-1]["signal"] if events else "NONE",
     }

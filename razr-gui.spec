@@ -11,7 +11,7 @@ a = Analysis(
     [GUI_ENTRY],
     pathex=[str(PROJECT_DIR)],
     binaries=[],
-    datas=[],
+    datas=[(str(PROJECT_DIR / "config.yaml.example"), ".")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

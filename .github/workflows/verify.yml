@@ -1,0 +1,32 @@
+name: Offline verification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m pip check
+      - name: Compile and import
+        run: |
+          python -m compileall -q alerts.py config.py gui.py indicators.py main.py market_data.py operator_state.py replay.py runtime.py signals.py soak.py startup.py state.py utils.py
+          python -c "import alerts, config, gui, indicators, main, market_data, operator_state, replay, runtime, signals, soak, startup, state, utils"
+      - name: Deterministic tests (no network or credentials)
+        run: python -m pytest -q
+      - name: Reproduce fixture replay
+        run: |
+          python replay.py tests/fixtures/ohlcv.json --data-kind synthetic --output /tmp/replay-a.json
+          python replay.py tests/fixtures/ohlcv.json --data-kind synthetic --output /tmp/replay-b.json
+          cmp /tmp/replay-a.json /tmp/replay-b.json

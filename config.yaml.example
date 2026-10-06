@@ -1,10 +1,12 @@
-api_key: "EXCHANGE_API_KEY"
-api_secret: "EXCHANGE_API_SECRET"
-api_passphrase: "PASSPHRASE"  # Si aplica para OKX (CCXT acepta passphrase para algunos mercados)
+authenticated: false  # Public endpoints are the default; keys are ignored in this mode.
+notifications: true  # Set false for console/log only.
+api_key: ""
+api_secret: ""
+api_passphrase: ""  # Si aplica para OKX (CCXT acepta passphrase para algunos mercados)
 
 exchange: "okx"
 symbol: "BTC/USDT"
-timeframe: "15m"  # 1m, 5m, 15m, 1h, etc.
+timeframe: "1m"  # Phase 1 supports only OKX spot BTC/USDT at 1m.
 macd_fast: 12
 macd_slow: 26
 macd_signal: 9
@@ -16,3 +18,17 @@ debug: false
 
 # Ajustes de notificación
 notify_urgency: "critical"
+
+# Confirmed close and recovery policy (seconds)
+close_grace_seconds: 2
+stale_after_seconds: 120
+alert_age_limit_seconds: 300
+
+# Optional Linux delivery channels; notifications: false disables both.
+desktop_notifications: true
+sound_notifications: true
+# Local exponential backoff cap; a server Retry-After may require a longer wait.
+retry_base_seconds: 5
+retry_max_seconds: 300
+delivery_max_attempts: 5
+health_interval_seconds: 60
