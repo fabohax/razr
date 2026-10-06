@@ -52,5 +52,6 @@ Windows compatibility.
 - Run the executable on a distinct clean Linux target with compatible libraries.
 - Verify actual startup at boot/login on the intended desktop.
 - Confirm audible sound and intended output routing in the operator desktop.
-- Observe hosted CI. Windows packaging/GUI remains unverified; notifications and
+- Hosted CI did not start; local tests passed. Rerun the workflow when hosting
+  restrictions are resolved. Windows packaging/GUI remains unverified; notifications and
   automatic-startup adapters are Linux-only in this release.

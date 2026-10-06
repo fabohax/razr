@@ -412,3 +412,11 @@ only checked paplay/play. Added PipeWire support; source playback completed with
 status 0 and the regression suite now has **111 passing tests**. The executable
 is rebuilt with this fix. Operator confirmation of audible output remains useful;
 a successful command alone cannot establish speaker volume or output routing.
+
+### First prerelease publication — 2026-10-05
+
+v0.1.0 packages the verified Linux executable, documentation, public configuration
+template and checksums. 111 local tests passed immediately before publication.
+The hosted GitHub verification job did not start because of an account restriction;
+this is not a test failure and hosted CI remains unverified. The ongoing soak and
+remaining clean-target/boot/audio checks are retained as prerelease limitations.
