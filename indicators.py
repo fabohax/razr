@@ -40,7 +40,7 @@ def detect_macd_signal(df: pd.DataFrame):
     buy_cross = (prev["MACD"] <= prev["MACD_Signal"]) and (curr["MACD"] > curr["MACD_Signal"])
     sell_cross = (prev["MACD"] >= prev["MACD_Signal"]) and (curr["MACD"] < curr["MACD_Signal"])
 
-    if buy_cross or sell_cross:
+    if curr["MACD"] <= 0 and (buy_cross or sell_cross):
         return {"signal": "BUY" if buy_cross else "SELL", "price": curr["close"], "macd": curr["MACD"], "signal_line": curr["MACD_Signal"], "hist": curr["MACD_Hist"], "timestamp": curr.name}
 
     return None

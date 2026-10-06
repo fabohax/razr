@@ -23,14 +23,14 @@ def sample():
 
 def test_golden_replay_and_independent_pandas_reference():
     df, report = replay(sample(),Settings())
-    expected = json.loads((FIXTURES/'events.json').read_text())
-    assert len(report['events']) == len(expected) == 8
+    expected = [e for e in json.loads((FIXTURES/'events.json').read_text()) if e['macd'] <= 0]
+    assert len(report['events']) == len(expected) == 4
     for event, golden in zip(report['events'],expected):
         assert event['candle_ms'] == golden['candle_ms']
         assert event['signal'] == golden['signal']
         for key in ('macd','signal_line','hist'):
             assert event[key] == pytest.approx(golden[key],abs=1e-12)
-    assert report['audit'] == {'events':8,'buy_signals':4,'sell_signals':4,'last_signal':'SELL'}
+    assert report['audit'] == {'events':4,'buy_signals':4,'sell_signals':0,'last_signal':'BUY'}
 
 
 def test_export_byte_reproducibility_and_csv(tmp_path):

@@ -11,7 +11,7 @@
 1. **Conexión al exchange** — Se conecta a los endpoints públicos de OKX mediante `ccxt`, sin credenciales.
 2. **Obtención de datos** — Descarga las últimas N velas (OHLCV) del par y timeframe configurados (por defecto `BTC/USDT` en `1m`).
 3. **Cálculo de indicadores** — Computa MACD, línea de señal e histograma con parámetros configurables (`fast`, `slow`, `signal`).
-4. **Detección de cruces** — Identifica cruces alcistas (BUY) y bajistas (SELL) entre la línea MACD y la línea de señal. Evalúa únicamente velas cerradas y confirmadas; no asigna fuerza al cruce.
+4. **Detección de cruces** — Identifica cruces alcistas (BUY) y bajistas (SELL) entre la línea MACD y la línea de señal. Evalúa únicamente velas cerradas y confirmadas; descarta cruces cuya línea MACD esté por encima de cero al cierre (MACD > 0). En cero o por debajo se admiten BUY y SELL; no asigna fuerza al cruce.
 5. **Estado persistente** — Guarda cruces, estado EMA y trabajos de entrega en SQLite; procesa las velas nuevas en orden.
 6. **Alertas** — Cuando se detecta un nuevo cruce:
    - Envía una **notificación de escritorio** (`notify-send`) con urgencia configurable.
@@ -526,3 +526,105 @@ test entregado en esta sesión; reproducción con PipeWire (`pw-play`) verificad
 debe confirmarse en el escritorio.
 Una máquina Linux limpia distinta, boot real, Windows y el soak completo siguen
 siendo gates pendientes; el binario depende de compatibilidad del sistema/glibc.
+
+## Perpetual strategy backtester
+
+`backtest.py` evaluates the candidate in [STRATEGY.md](STRATEGY.md) independently
+of the live spot bot. Supply consecutive, closed **OKX BTC-USDT-SWAP 1m** candles
+as JSON six-value OHLCV rows or CSV with exactly
+`timestamp,open,high,low,close,volume` (timestamps in milliseconds). Contract
+identity and historical/synthetic provenance are caller assertions.
+
+```bash
+.venv/bin/python backtest.py data/btc-usdt-swap-1m.csv \
+  --evaluation-start 2026-09-01T00:00:00Z \
+  --data-kind historical --compare-stops --output report.json
+```
+
+Include at least **251 hours of history before evaluation** to warm the hourly
+EMA50 and MACD filters. Choose the development/evaluation boundary before
+inspecting returns; reserve a separate untouched period after comparing stops.
+The existing four-hour synthetic fixture is too short for this strategy.
+
+Defaults: MACD 12/26/9, hourly rising EMA50, 15m positive MACD/EMA20,
+5m rising histogram following a nonpositive histogram/EMA20, 1m bullish cross;
+TP 0.16%, SL 0.27%, time stop 17 minutes, 60-minute entry cooldown, four-entry
+UTC daily cap. Entries execute at the next candle open as taker. Maker TP must
+trade through its price; stops and time exits execute as taker. Fees default to
+2 maker / 5 taker basis points. Taker slippage defaults to **1 bp per fill**,
+an explicit assumption to stress rather than a measured venue estimate.
+
+Use `--no-setup-filter` to compare the optional 5m filter, `--tp-taker` for taker
+TP exits, `--delay-minutes` for additional whole-minute entry latency, and
+`--slippage-bps` for execution-cost stress. `--fast`, `--slow`, and `--signal`
+change MACD on all analyzed timeframes. `--help` lists all parameters.
+
+Sizing uses `--initial-equity 1000 --margin-fraction 0.01 --leverage 100` by
+default: 1% of current account equity supplies margin, producing notional equal
+to current equity at 100x. It does **not** allocate the entire account as margin.
+JSON contains every trade, actual entry/exit-notional fees, net expectancy,
+profit factor (null when there are no losing trades), win rate, return, candle-close
+marked drawdown, TP/SL/time counts, ambiguous candles, daily entry counts, and any
+position still open at the end. Zero-entry days are included; boundary days may
+be partial. Open positions are marked, not forcibly closed.
+
+Unknown intrabar TP/SL order assumes SL first; gap stops fill at the opening
+price plus adverse slippage. Exit timestamps identify the exit candle, not an
+invented precise intrabar execution time. Funding, liquidation, order queues,
+and liquidity constraints are not modeled. This is a candidate strategy
+simulation, not a full 100x account-risk simulator or proof of profitability.
+
+### Real-market evaluation
+
+[Results from confirmed OKX BTC-USDT-SWAP candles](reports/market-results-20261005.md)
+cover July–August 2026 development and September–October 4 holdout. All six
+development variants lost after costs; the frozen 0.07% SL / 5m-filter variant
+also lost on the holdout. These results do not support deploying this candidate.
+
+`fetch_history.py` downloads public confirmed candles, checks complete minute
+coverage, and saves a provenance manifest with a SHA-256 hash. It does not need
+credentials. `run_market_backtest.py` verifies that hash, compares the six
+predefined development variants, freezes a setting, and runs the holdout plus
+execution-cost sensitivities. See the linked results for commands and assumptions.
+
+### Refined multi-timeframe research strategy
+
+`strategy_v2.py` adds second-close MACD confirmation, higher-timeframe impulse
+vetoes, signal-time structural/ATR stops, and targets solved for net reward/risk
+after the confirmed fees. It permits zero daily entries and retains the 17-minute
+time stop. [Rules and research sources](STRATEGY_V2.md) and
+[real-market v2 results](reports/strategy-v2-results-20261005.md) document two
+experiments. The strict version was too sparse; the simpler version still lost
+after costs. The follow-up is exploratory, not an untouched evaluation.
+
+`run_strategy_v2.py` verifies downloaded manifests, records development selection,
+and exports all trade outcomes and nearby screenshot-cross rejection diagnostics.
+See the results for the reproduction command. This remains an offline candidate;
+no profitable strategy or live-bot integration has been established.
+
+### Volume breakout research strategy
+
+`strategy_v3.py` explores confirmed 5m range breaks with 1h trend context,
+relative volume, long/short entries, structural ATR stops, fee-adjusted targets,
+60/120-minute exits and account-risk sizing. It changes the margin assumption to
+10x and targets at most 0.25% planned account loss per stop. The study compares
+volume filters with a matched no-volume control.
+
+[Declared rules](STRATEGY_V3.md) and
+[real-market results](reports/strategy-v3-results-20261005.md) cover twelve
+development variants and subsequent February/March checks on another historical
+block. All variants lost after costs. The volume filter reduced trade count but
+did not establish a reliable edge. `run_strategy_v3.py` reproduces the frozen
+comparison, exports trades, and includes execution/funding stress. This remains
+offline research; the live bot is unchanged.
+
+El filtro de cero usa la versión `macd-ema-first-zero-filter-v2`. Al reiniciar
+el bot tras actualizar, se inicializa una nueva línea base sin alertas históricas;
+los registros de la versión anterior se conservan. Los informes de estrategias
+anteriores no se han recalculado con este filtro.
+
+TP actual de las estrategias MACD: precio de compra efectivo × 1.0016
+(+0.16% bruto, antes de comisiones), también con el SL estructural de v2.
+
+SL actual de las estrategias MACD v1/v2: precio de compra efectivo × 0.9973
+(−0.27%). Reemplaza el SL estructural de v2.

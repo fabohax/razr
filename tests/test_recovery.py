@@ -273,7 +273,7 @@ def test_suspend_reconnects_and_catches_up_in_order(tmp_path, monkeypatch):
     logger = Mock()
     assert main.run(Settings(), paths, args(), logger, fake) == 0
     assert connection.call_count == 2
-    assert [e['candle_ms']//60000 for e in batches[1]] == [151,163,176]
+    assert [e['candle_ms']//60000 for e in batches[1]] == [151,176]
     assert all(e['recovered'] for e in batches[1])
     assert any('discontinuity' in str(call) for call in logger.warning.call_args_list)
 

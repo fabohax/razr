@@ -50,7 +50,7 @@ def test_fixed_numerical_fixture_and_equality():
     assert df.MACD_Signal.tolist() == pytest.approx([0, 1/9, 13/54, 13/108, -139/1944])
     assert detect_macd_signal(df) is None  # not warmed up
     crossing = pd.DataFrame({'close':[1.,2.], 'MACD':[0.,1.], 'MACD_Signal':[0.,0.], 'MACD_Hist':[0.,1.]})
-    assert detect_macd_signal(crossing)['signal'] == 'BUY'
+    assert detect_macd_signal(crossing) is None  # above zero
     crossing.loc[1, 'MACD'] = 0
     assert detect_macd_signal(crossing) is None
 
@@ -69,8 +69,8 @@ def test_replay_restart_identity_and_saved_ema(tmp_path):
     state = State(path)
     assert process(frame(150), cfg, state, 150*60000+3000, ['console_log']) == []
     events = process(frame(220), cfg, state, 220*60000+3000, ['console_log'])
-    assert [e['candle_ms']//60000 for e in events] == [151,163,176,188,201,213]
-    assert [e['signal'] for e in events] == ['BUY','SELL','BUY','SELL','BUY','SELL']
+    assert [e['candle_ms']//60000 for e in events] == [151,176,201]
+    assert [e['signal'] for e in events] == ['BUY','BUY','BUY']
     assert all('strong' not in e for e in events)
     assert all(e['recovered'] for e in events)
     assert sum(e['deliverable'] for e in events) == 0
@@ -81,7 +81,7 @@ def test_replay_restart_identity_and_saved_ema(tmp_path):
     state.close()
     state = State(path)
     assert process(frame(220), cfg, state, 220*60000+3000, ['console_log']) == []
-    assert state.db.execute('SELECT count(*) FROM events').fetchone()[0] == 6
+    assert state.db.execute('SELECT count(*) FROM events').fetchone()[0] == 3
     assert process(frame(220), replace(cfg, macd_fast=10), state, 220*60000+3000, []) == []
     assert state.db.execute('SELECT count(*) FROM processing').fetchone()[0] == 2
     state.close()
@@ -145,4 +145,25 @@ def test_delivery_failure_preserves_event_job(tmp_path, monkeypatch):
     main.deliver_pending(state, cfg, SimpleNamespace(no_notifications=False), Mock(), '')
     assert len(state.pending()) == 1
     assert state.db.execute('SELECT count(*) FROM events').fetchone()[0] == 1
+    state.close()
+
+
+@pytest.mark.parametrize('direction', ['BUY', 'SELL'])
+@pytest.mark.parametrize('level', [-1., 0., 1.])
+def test_cross_zero_line_filter(direction, level, tmp_path):
+    # Arrange a real incremental cross at each side of zero, including equality.
+    cfg = Settings(macd_fast=2, macd_slow=3, macd_signal=2)
+    state = State(tmp_path / 'zero.db')
+    sign = 1 if direction == 'BUY' else -1
+    state.commit(namespace(cfg), (0, 100 + level - sign, 100., level - .5*sign), [], [])
+    df = normalize_ohlcv([[60000, 100., 120., 80., 100 + 4*level + 2*sign, 10.]])
+    events = process(df, cfg, state, 123000, ['console_log'])
+    assert [e['signal'] for e in events] == ([direction] if level <= 0 else [])
+    assert len(state.pending()) == len(events)
+    assert state.checkpoint(namespace(cfg))[0] == 60000
+    batch = pd.DataFrame({'close': [100., 100.], 'MACD': [2*level, level],
+                          'MACD_Signal': [2*level + sign, level - sign],
+                          'MACD_Hist': [-sign, sign]})
+    event = detect_macd_signal(batch)
+    assert (event['signal'] if event else None) == (direction if level <= 0 else None)
     state.close()

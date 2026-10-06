@@ -4,7 +4,7 @@ import json
 import sqlite3
 import time
 
-STRATEGY_VERSION = 'macd-ema-first-v1'
+STRATEGY_VERSION = 'macd-ema-first-zero-filter-v2'
 
 
 def namespace(cfg):

@@ -39,7 +39,7 @@ def process(df, cfg, state, now_ms, channels):
         sig += 2 / (cfg.macd_signal + 1) * (macd - sig)
         hist = macd - sig
         direction = 'BUY' if previous_hist <= 0 < hist else 'SELL' if previous_hist >= 0 > hist else None
-        if old is not None and direction:
+        if old is not None and direction and macd <= 0:
             ts = int(row.timestamp)
             age = now_ms - ts - DURATION_MS
             event = dict(event_id=hashlib.sha256(f'{ns}:{ts}:{direction}'.encode()).hexdigest(),

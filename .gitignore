@@ -58,3 +58,8 @@ config.yaml
 ohlcv_data.csv
 
 .pytest_cache/
+
+# Downloaded market data and generated detailed backtest artifacts
+/data/*.json
+/reports/*.json
+/reports/*.csv

@@ -17,3 +17,7 @@ The last SELL has no following candle in this sample, so it cannot execute in
 the optional next-open simulation. The example evaluation split at 03:00 UTC
 reserves 180 development candles and 60 evaluation candles. It is an example
 split, not evidence of a tuned or profitable strategy.
+
+The zero-line filter retains indices 151, 176, 201 and 226 (BUY).
+All four SELL crossings in this fixture have MACD > 0 and are discarded.
+The golden file retains raw crosses for independent filter comparisons.
